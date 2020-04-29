@@ -1,21 +1,26 @@
-FROM debian:stable-slim
-MAINTAINER mickael@kerjean.me
-
-ENV PUBLIC_KEY="-----BEGIN PGP PUBLIC KEY BLOCK-----\\n\\nmQENBFzLpYEBCADOOzgckQCQRrPrq15awP5Xj3BCytNjAXDixISR3Oyq0TP9PD3z\\nAp6zwOd5B4NpwCk2vQdOaq3qRKcMGFUEDNElL9WkzBixSyqj1GNCTrtJCNtJQ3TX\\nuKebrJ1DRs1vjO/tSFMgzlF843gwgy926vVdhJKRZ+13ZrWGbbWq2wilRCYXYTkw\\n+2niWXJCe22bpofAoNmNkHGmMsImCpB/P6sE803iJgTkKgU8uzZxQdeH39LaL7Ha\\nZ8aPisOO6oc5aEQ9Lx31K5cyC+373nGq56Jh0qpJjJnuT6jeHt4uYcF/OnExUf94\\nmPwv0+5kEgIfaq8qY2nwwMX9ZIqjARcS0ufVABEBAAG0JE1pY2thZWwgS2VyamVh\\nbiA8bWlja2FlbEBrZXJqZWFuLm1lPokBVAQTAQgAPhYhBHPmP6wrA9RH5bNj1lF0\\n5OJyO2PrBQJcy6WBAhsDBQkDwmcABQsJCAcCBhUKCQgLAgQWAgMBAh4BAheAAAoJ\\nEFF05OJyO2PrnQUH/0+CV+4EiOlEYR2mFPCvJ44nt7r500wUaE9ifkdnG1cUnJY7\\n/kX7ZmSXH0atplklHTl+HjPf2l95gz1dDXhk1uZ63fcguJqk38De22wSMFqgLiBp\\nj+1JcvJs+41afX7xry6GABPP3YYJTa6xtUAS3TloG7CVUCoLHmh7TNI7+KqOYLTQ\\nw6qTN5oA5Bq108O0To2V5OmzvSVohF6GN0RwOzibaP+bsbOZt0UNPyTrjbEbbHYM\\nFL8eO3uR2quMLvZiz6asBmLBAvdvf5AtOgrWfa1krobEZOGcZtgNRJ6EumHLzESF\\n/d0AEB0CdB3jfIfusLLj499gJXJ/o2GrGx/zFvO5AQ0EXMulgQEIALMfHawDbtNP\\nNn50E4E1pkWb4Rfdyr3mLWjRmqmCzWud+XwD3biu1g/fFaH4/d51SvVSg8M26bdF\\n0wTzw/fJZBCFICWkZgsdVa59aY8IstEVmQAOw5xUW2jItr2MKgmRUQ5Y50Hj64DG\\nyH9tn8L1W7Mf6+IzU6hhtaDm13TR7w1kfldWxrUrWTJ12Krd8WAOJN8Dg97bwxID\\ncrfrT2OMTGM9hnV63hIOme/ho5KvNTn3NuOmbbRAY/bjnoDFINTBg1DXddR0AkcJ\\nnXsN/lQbjvfIAOW3uk53HcZBk2aKc0tEx3IcS8z8shSutr5cV/pM1muyzEc7QlYF\\nLcH7GhQFyykAEQEAAYkBPAQYAQgAJhYhBHPmP6wrA9RH5bNj1lF05OJyO2PrBQJc\\ny6WBAhsMBQkDwmcAAAoJEFF05OJyO2PrmVAH/AvR0JJQlrWoFjz9tJkM5tzqtV2x\\nl7mufKwldP2xAAFVg4mLZpEyeIhLAmaYgvdNg0IbOUCKm2BZHKVLPzHFchPV+L05\\nzLYtI8lRfbuXjHQnMhWzorUdHGsi01cFPhnelRUkk+eCwopcdvIKQZBP3f+YAefj\\ntqH0aeggcEp5EpgDs99gE4fwymcKd1XgcfQO/p36Pp7N2pWPpVEJlCqFQ6QwlXCr\\n4zGTPqs+1dj94kg9948z/YUtxevSSmFwGpVFtz6rMp2xwjzKDFLSntZwWAnL/cNR\\nLahn9jFK+fiLn435EF4hMU3jk+0+PcXPeptfwPqPgoJLG4hG0O+IOIbRD78=\\n=XPwb\\n-----END PGP PUBLIC KEY BLOCK-----\\n"
+FROM debian:stable-slim as builder
 ENV DEBIAN_FRONTEND noninteractive
-
-RUN apt-get update > /dev/null && \
-    #################
-    # Install
-    apt-get install -y libglib2.0-0 curl gnupg > /dev/null && \
-    echo $PUBLIC_KEY | gpg --import && \
-    cd /tmp/ && \
-    curl --resolve downloads.filestash.app:443:94.23.200.66 -s https://downloads.filestash.app/latest/filestash_`uname -s`-`uname -m`.tar.gpg | gpg --decrypt | tar xf - && \
-    mv filestash /app/ && \
-    apt-get purge -y --auto-remove gnupg && \
-    #################
-    # Optional dependencies
-    apt-get install -y curl tor emacs ffmpeg zip poppler-utils > /dev/null && \
+ENV PATH $PATH:/usr/local/go/bin
+WORKDIR /tmp/build
+RUN apt-get update  && \
+    apt-get install -q -y pkg-config libglib2.0-dev libglib2.0-0 curl gnupg git make gcc && \
+    curl -O https://dl.google.com/go/go1.14.2.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.14.2.linux-amd64.tar.gz && \
+    curl -sL https://deb.nodesource.com/setup_12.x | bash - && \
+    apt-get install -q -y nodejs
+ADD . .
+RUN npm install && \
+    make build_init && \
+    mkdir -p ./dist/data/state/ && \
+    cp -R config ./dist/data/state/ && \
+    make build_frontend && \
+    make build_backend
+FROM debian:stable-slim
+WORKDIR /app
+# Optional dependencies
+COPY --from=builder /tmp/build/dist/ /app/
+RUN apt-get update  && \
+    apt-get install -q -y curl tor emacs ffmpeg zip poppler-utils && \
     # org-mode: html export
     curl https://raw.githubusercontent.com/mickael-kerjean/filestash/master/server/.assets/emacs/htmlize.el > /usr/share/emacs/site-lisp/htmlize.el && \
     # org-mode: markdown export
@@ -51,11 +56,8 @@ RUN apt-get update > /dev/null && \
     chown -R filestash:filestash /app/ && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /tmp/*
-
 USER filestash
 RUN timeout 1 /app/filestash | grep -q start
-
 EXPOSE 8334
 VOLUME ["/app/data/state/"]
-WORKDIR "/app"
 CMD ["/app/filestash"]
