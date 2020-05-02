@@ -59,4 +59,4 @@ RUN apt-get update  && \
 RUN timeout 1 /app/filestash | grep -q start
 EXPOSE 8334
 VOLUME ["/app/data/state/"]
-CMD ["bash", "-c", "stat /mnt/efs/data || (cp -pr data /mnt/efs/ && rm -fr data && ln -s /mnt/efs/data data);runuser -u filestash /app/filestash"]
+CMD ["bash", "-c", "stat /mnt/efs/data || (cp -pr data /mnt/efs/ && rm -fr data && ln -s /mnt/efs/data data);chown -R filestash:filestash /mnt/efs/data && runuser -u filestash /app/filestash"]
