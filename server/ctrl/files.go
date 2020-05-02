@@ -291,7 +291,10 @@ func FileSave(ctx App, res http.ResponseWriter, req *http.Request) {
 		SendErrorResult(res, err)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		file.Close()
+		req.MultipartForm.RemoveAll()
+	}()
 
 	err = ctx.Backend.Save(path, file)
 	file.Close()
