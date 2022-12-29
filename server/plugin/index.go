@@ -6,7 +6,7 @@ import (
 	_ "github.com/mickael-kerjean/filestash/server/plugin/plg_video_transcoder"
 	_ "github.com/mickael-kerjean/filestash/server/plugin/plg_editor_onlyoffice"
 	_ "github.com/mickael-kerjean/filestash/server/plugin/plg_handler_syncthing"
-	_ "github.com/mickael-kerjean/filestash/server/plugin/plg_image_light"
+//	_ "github.com/mickael-kerjean/filestash/server/plugin/plg_image_light"
 	_ "github.com/mickael-kerjean/filestash/server/plugin/plg_backend_backblaze"
 	_ "github.com/mickael-kerjean/filestash/server/plugin/plg_backend_dav"
 	_ "github.com/mickael-kerjean/filestash/server/plugin/plg_backend_mysql"
