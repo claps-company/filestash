@@ -9,9 +9,11 @@ permissions:
   id-token: write # This is required for requesting the JWT
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 300
+    outputs:
+      IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v3
 
@@ -28,7 +30,7 @@ jobs:
 
       - name: Set image tag
         run: |
-          if [[ "${{ github.ref }}" == 'refs/heads/master' ]]; then
+          if [[ "${{ github.ref }}" == 'refs/heads/master' ]] ; then
             echo "IMAGE_TAG=latest" >> $GITHUB_ENV
           else
             echo "IMAGE_TAG=development" >> $GITHUB_ENV
@@ -48,3 +50,37 @@ jobs:
         env:
           ECR_REPOSITORY: filestash
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+
+  deploy:
+    if: github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 300
+    steps:
+      - name: Git clone the repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        id: aws-config
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::006759544100:role/bgmc-youtube-deploy
+          role-session-name: gha-deploy-session
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: .aws/production/task-definition.json
+          container-name: filestash
+          image: ${{ steps.aws-config.outputs.aws-account-id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/filestash@${{ needs.build.outputs.IMAGE_DIGEST }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          cluster: bgmc-youtube-prod-ecs-cluster
+          service: bgmc-youtube-prod-filestash-ecs-service
+          wait-for-service-stability: true
