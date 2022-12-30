@@ -16,6 +16,8 @@ RUN npm install && \
     make build_frontend && \
     make build_backend
 FROM debian:stable-slim
+ARG GID=1000
+ARG UID=1000
 WORKDIR /app
 # Optional dependencies
 COPY --from=builder /tmp/build/dist/ /app/
@@ -52,7 +54,8 @@ RUN apt-get update  && \
     find /usr/share/emacs -name '*.xpm' | xargs rm -f && \
     #################
     # Finalise the image
-    useradd filestash && \
+    groupadd -g $GID filestash && \
+    useradd filestash -u $UID -g filestash && \
     chown -R filestash:filestash /app/ && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /tmp/*
